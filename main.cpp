@@ -1,5 +1,5 @@
 #include <Novice.h>
-#include <math.h>
+#include <cmath>
 #include <assert.h>
 
 const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題00_03";
@@ -41,6 +41,15 @@ Matrix4x4 MakeScaleMatrix(const Vector3& scale);
 // 座標変換
 Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix);
 
+// X軸回転行列
+Matrix4x4 MakeRotateXMatrix(float radian);
+
+// Y軸回転行列
+Matrix4x4 MakeRotateYMatrix(float radian);
+
+// Z軸回転行列
+Matrix4x4 MakeRotateZMatrix(float radian);
+
 // 4x4行列の数値表示
 const int kColumnWidth = 60;
 const int kRowHeight = 20;
@@ -59,19 +68,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
-	Vector3 translate{ 4.1f, 2.6f, 0.8f };
-	Vector3 scale{ 1.5f, 5.2f, 7.3f };
-	Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
-	Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
-	Vector3 point{ 2.3f, 3.8f, 1.4f };
-	Matrix4x4 transformMatrix = {
-		1.0f, 2.0f, 3.0f, 4.0f,
-		3.0f, 1.0f, 1.0f, 2.0f,
-		1.0f, 4.0f, 2.0f, 3.0f,
-		2.0f, 2.0f, 1.0f, 3.0f
-	};
+	Vector3 rotate = { 0.4f, 1.43f, -0.8f };
+	Matrix4x4 rotateXMatrix = MakeRotateXMatrix(rotate.x);
+	Matrix4x4 rotateYMatrix = MakeRotateYMatrix(rotate.y);
+	Matrix4x4 rotateZMatrix = MakeRotateZMatrix(rotate.z);
 
-	Vector3 transformed = Transform(point, transformMatrix);
+	Matrix4x4 rotateXYZMatrix = Multiply(rotateXMatrix, Multiply(rotateYMatrix, rotateZMatrix));
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -93,10 +95,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓描画処理ここから
 		///
-
-		VectorScreenPrintf(0, 0, transformed, "transformed");
-		MatrixScreenPrintf(0, 20, translateMatrix, "translateMatrix");
-		MatrixScreenPrintf(0, 20 + kRowHeight * 5, scaleMatrix, "scaleMatrix");
+		
+		MatrixScreenPrintf(0, 0, rotateXMatrix, "rotateXMatrix");
+		MatrixScreenPrintf(0, kRowHeight * 5, rotateYMatrix, "rotateYMatrix");
+		MatrixScreenPrintf(0, kRowHeight * 10, rotateZMatrix, "rotateZMatrix");
+		MatrixScreenPrintf(0, kRowHeight * 15, rotateXYZMatrix, "rotateXYZMatrix");
 
 		///
 		/// ↑描画処理ここまで
@@ -392,6 +395,92 @@ Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix) {
 	return result;
 
 }
+
+
+Matrix4x4 MakeRotateXMatrix(float radian) {
+
+	Matrix4x4 result;
+
+	result.m[0][0] = 1.0f;
+	result.m[0][1] = 0.0f;
+	result.m[0][2] = 0.0f;
+	result.m[0][3] = 0.0f;
+
+	result.m[1][0] = 0.0f;
+	result.m[1][1] = cosf(radian);
+	result.m[1][2] = sinf(radian);
+	result.m[1][3] = 0.0f;
+
+	result.m[2][0] = 0.0f;
+	result.m[2][1] = -sinf(radian);
+	result.m[2][2] = cosf(radian);
+	result.m[2][3] = 0.0f;
+
+	result.m[3][0] = 0.0f;
+	result.m[3][1] = 0.0f;
+	result.m[3][2] = 0.0f;
+	result.m[3][3] = 1.0f;
+		
+	return result;
+
+}
+
+Matrix4x4 MakeRotateYMatrix(float radian) {
+
+	Matrix4x4 result;
+
+	result.m[0][0] = cosf(radian);
+	result.m[0][1] = 0.0f;
+	result.m[0][2] = -sinf(radian);
+	result.m[0][3] = 0.0f;
+
+	result.m[1][0] = 0.0f;
+	result.m[1][1] = 1.0f;
+	result.m[1][2] = 0.0f;
+	result.m[1][3] = 0.0f;
+
+	result.m[2][0] = sinf(radian);
+	result.m[2][1] = 0.0f;
+	result.m[2][2] = cosf(radian);
+	result.m[2][3] = 0.0f;
+
+	result.m[3][0] = 0.0f;
+	result.m[3][1] = 0.0f;
+	result.m[3][2] = 0.0f;
+	result.m[3][3] = 1.0f;
+
+	return result;
+
+}
+
+Matrix4x4 MakeRotateZMatrix(float radian) {
+
+	Matrix4x4 result;
+
+	result.m[0][0] = cosf(radian);
+	result.m[0][1] = sinf(radian);
+	result.m[0][2] = 0.0f;
+	result.m[0][3] = 0.0f;
+
+	result.m[1][0] = -sinf(radian);
+	result.m[1][1] = cosf(radian);
+	result.m[1][2] = 0.0f;
+	result.m[1][3] = 0.0f;
+
+	result.m[2][0] = 0.0f;
+	result.m[2][1] = 0.0f;
+	result.m[2][2] = 1.0f;
+	result.m[2][3] = 0.0f;
+
+	result.m[3][0] = 0.0f;
+	result.m[3][1] = 0.0f;
+	result.m[3][2] = 0.0f;
+	result.m[3][3] = 1.0f;
+
+	return result;
+
+}
+
 
 void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
 
