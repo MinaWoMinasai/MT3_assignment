@@ -2,7 +2,7 @@
 #include <cmath>
 #include <assert.h>
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題00_03";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題00_04";
 
 // 三次元ベクトル
 struct Vector3 {
