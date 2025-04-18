@@ -2,7 +2,7 @@
 #include <cmath>
 #include <assert.h>
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題00_04";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題00_05";
 
 // 三次元ベクトル
 struct Vector3 {
@@ -50,6 +50,9 @@ Matrix4x4 MakeRotateYMatrix(float radian);
 // Z軸回転行列
 Matrix4x4 MakeRotateZMatrix(float radian);
 
+// 3次元アフィン変換行列
+Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& translate, const Vector3& rotate);
+
 // 4x4行列の数値表示
 const int kColumnWidth = 60;
 const int kRowHeight = 20;
@@ -68,13 +71,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
+
+	Vector3 scale = { 1.2f, 0.79f, -2.1f };
 	Vector3 rotate = { 0.4f, 1.43f, -0.8f };
-	Matrix4x4 rotateXMatrix = MakeRotateXMatrix(rotate.x);
-	Matrix4x4 rotateYMatrix = MakeRotateYMatrix(rotate.y);
-	Matrix4x4 rotateZMatrix = MakeRotateZMatrix(rotate.z);
-
-	Matrix4x4 rotateXYZMatrix = Multiply(rotateXMatrix, Multiply(rotateYMatrix, rotateZMatrix));
-
+	Vector3 translate = { 2.7f, -4.15f, 1.57f };
+	Matrix4x4 worldMatrix = MakeAffineMatrix(scale, rotate, translate);
+	
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -96,10 +98,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 		
-		MatrixScreenPrintf(0, 0, rotateXMatrix, "rotateXMatrix");
-		MatrixScreenPrintf(0, kRowHeight * 5, rotateYMatrix, "rotateYMatrix");
-		MatrixScreenPrintf(0, kRowHeight * 10, rotateZMatrix, "rotateZMatrix");
-		MatrixScreenPrintf(0, kRowHeight * 15, rotateXYZMatrix, "rotateXYZMatrix");
+		MatrixScreenPrintf(0, 0, worldMatrix, "worldMatrix");
 
 		///
 		/// ↑描画処理ここまで
@@ -481,6 +480,16 @@ Matrix4x4 MakeRotateZMatrix(float radian) {
 
 }
 
+Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
+	
+	Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
+	Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
+	Matrix4x4 rotateXMatrix = MakeRotateXMatrix(rotate.x);
+	Matrix4x4 rotateYMatrix = MakeRotateYMatrix(rotate.y);
+	Matrix4x4 rotateZMatrix = MakeRotateZMatrix(rotate.z);
+	
+	return Multiply(Multiply(Multiply(scaleMatrix, rotateXMatrix), Multiply(rotateYMatrix, rotateZMatrix)), translateMatrix);
+}
 
 void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
 
