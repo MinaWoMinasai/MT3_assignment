@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <imgui.h>
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題01_02";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_00";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -150,7 +150,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 viewportMatrix;
 
 	Segment segment{ {-2.0f, -1.0f, 0.0f}, {3.0f, 2.0f, 2.0f} };
-	Vector3 point{ -1.5f, 0.0f, 0.6f };
+	Vector3 point{ -1.5f, 0.6f, 0.6f };
 
 	Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
 	Vector3 closestPoint = ClosestPoint(point, segment);
@@ -855,52 +855,11 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 }
 
 Vector3 Project(const Vector3& v1, const Vector3& v2) {
-
-	Vector3 result;
-
-	float dot = Dot(v1, v2);
-	float lengthSquared = Dot(v2, v2);
-	if (lengthSquared == 0.0f) return { 0, 0, 0 }; // v2がゼロベクトルの場合
-	float scale = dot / lengthSquared;
-
-	result.x = v2.x * scale;
-	result.y = v2.y * scale;
-	result.z = v2.z * scale;
-
-	return result;
+	return Multiply((Dot(v1, v2) / Dot(v2, v2)), v2);
 }
 
 Vector3 ClosestPoint(const Vector3& point, const Segment& segment) {
-	// 結果の点を格納する変数
-	Vector3 closestPoint;
-
-	// セグメントの始点と終点から方向ベクトルを計算
-	Vector3 segmentDirection = Subtract(segment.diff, segment.origin);
-
-	// 点とセグメントの始点とのベクトルを計算
-	Vector3 vectorToPoint = Subtract(point, segment.origin);
-
-	// セグメントの長さの二乗を計算
-	float segmentLengthSquared = Dot(segmentDirection, segmentDirection);
-
-	// セグメントが1点の場合（長さが0の場合）
-	if (segmentLengthSquared == 0.0f) {
-		return segment.origin; // 始点を返す
-	}
-
-	// 点がセグメント上のどの位置に射影されるかを計算
-	float t = Dot(vectorToPoint, segmentDirection) / segmentLengthSquared;
-
-	// t を [0, 1] の範囲に制限（セグメント内の点に対応）
-	if (t < 0.0f) t = 0.0f;
-	else if (t > 1.0f) t = 1.0f;
-
-	// 最近接点の座標を計算
-	closestPoint.x = segment.origin.x + segmentDirection.x * t;
-	closestPoint.y = segment.origin.y + segmentDirection.y * t;
-	closestPoint.z = segment.origin.z + segmentDirection.z * t;
-
-	return closestPoint;
+	return Add(segment.origin, Project(Subtract(point, segment.origin), segment.diff));
 }
 
 void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
