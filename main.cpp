@@ -27,6 +27,21 @@ struct Sphere {
 	float radius; // 半径
 };
 
+struct Line {
+	Vector3 origin; // 始点
+	Vector3 diff; // 終点への差分ベクトル
+};
+
+struct Ray {
+	Vector3 origin; // 始点
+	Vector3 diff; // 終点への差分ベクトル
+};
+
+struct Segment {
+	Vector3 origin; // 始点
+	Vector3 diff; // 終点への差分ベクトル
+};
+
 // 加算
 Vector3 Add(const Vector3& v1, const Vector3& v2);
 
@@ -96,6 +111,12 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 
 void DrowGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix);
 
+// 正射影ベクトル
+Vector3 Project(const Vector3& v1, const Vector3& v2);
+
+// 接近接点
+Vector3 ClosestPoint(const Vector3& point, const Segment& segment);
+
 // 4x4行列の数値表示
 const int kColumnWidth = 60;
 const int kRowHeight = 20;
@@ -128,10 +149,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	Sphere sphere;
-	sphere.center = { 0.0f, 0.0f, 0.0f };
-	sphere.radius = 10.0f;
+	Segment segment{ {-2.0f, -1.0f, 0.0f}, {3.0f, 2.0f, 2.0f} };
+	Vector3 point{ -1.5f, 0.0f, 0.6f };
 
+	Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
+	Vector3 closestPoint = ClosestPoint(point, segment);
+
+	Sphere pointSphere{ point, 0.01f }; // 1cmの球を描画
+	Sphere closestpointSphere{ closestPoint, 0.01f };
+	
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -153,11 +179,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		viewportMatrix = MakeViewportMatrix(0, 0, kWindowWidth, kWindowHeight, 0.0f, 1.0f);
 		viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
+		Vector3 start = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
+		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
+
 		ImGui::Begin("window");
 		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.01f);
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.01f);
-		ImGui::DragFloat3("sphereCenter", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("sphereRadius", &sphere.radius, 0.01f);
+		ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
+
 		ImGui::End();
 
 		///
@@ -168,8 +197,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
+		Novice::DrawLine(
+			static_cast<int>(start.x),
+			static_cast<int>(start.y),
+			static_cast<int>(end.x),
+			static_cast<int>(end.y),
+			WHITE);
+			
+		DrawSphere(pointSphere, viewProjectionMatrix, viewportMatrix, RED);
+		DrawSphere(closestpointSphere, viewProjectionMatrix, viewportMatrix, BLACK);
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
-		DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
 
 		///
 		/// ↑描画処理ここまで
@@ -815,6 +852,55 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 
 		}
 	}
+}
+
+Vector3 Project(const Vector3& v1, const Vector3& v2) {
+
+	Vector3 result;
+
+	float dot = Dot(v1, v2);
+	float lengthSquared = Dot(v2, v2);
+	if (lengthSquared == 0.0f) return { 0, 0, 0 }; // v2がゼロベクトルの場合
+	float scale = dot / lengthSquared;
+
+	result.x = v2.x * scale;
+	result.y = v2.y * scale;
+	result.z = v2.z * scale;
+
+	return result;
+}
+
+Vector3 ClosestPoint(const Vector3& point, const Segment& segment) {
+	// 結果の点を格納する変数
+	Vector3 closestPoint;
+
+	// セグメントの始点と終点から方向ベクトルを計算
+	Vector3 segmentDirection = Subtract(segment.diff, segment.origin);
+
+	// 点とセグメントの始点とのベクトルを計算
+	Vector3 vectorToPoint = Subtract(point, segment.origin);
+
+	// セグメントの長さの二乗を計算
+	float segmentLengthSquared = Dot(segmentDirection, segmentDirection);
+
+	// セグメントが1点の場合（長さが0の場合）
+	if (segmentLengthSquared == 0.0f) {
+		return segment.origin; // 始点を返す
+	}
+
+	// 点がセグメント上のどの位置に射影されるかを計算
+	float t = Dot(vectorToPoint, segmentDirection) / segmentLengthSquared;
+
+	// t を [0, 1] の範囲に制限（セグメント内の点に対応）
+	if (t < 0.0f) t = 0.0f;
+	else if (t > 1.0f) t = 1.0f;
+
+	// 最近接点の座標を計算
+	closestPoint.x = segment.origin.x + segmentDirection.x * t;
+	closestPoint.y = segment.origin.y + segmentDirection.y * t;
+	closestPoint.z = segment.origin.z + segmentDirection.z * t;
+
+	return closestPoint;
 }
 
 void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
