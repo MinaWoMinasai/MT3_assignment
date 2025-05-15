@@ -2,6 +2,7 @@
 #include <cmath>
 #include <assert.h>
 #include <imgui.h>
+#include "algorithm"
 
 const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_00";
 
@@ -149,15 +150,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	Segment segment{ {-2.0f, -1.0f, 0.0f}, {3.0f, 2.0f, 2.0f} };
-	Vector3 point{ -1.5f, 0.6f, 0.6f };
+	// 二つの球を用意
+	Sphere speere1 = { { -10.0f, 0.0f, 0.0f }, 10.0f }; 
+	Sphere speere2 = { { 10.0f, 0.0f, 0.0f }, 10.0f }; 
 
-	Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
-	Vector3 closestPoint = ClosestPoint(point, segment);
-
-	Sphere pointSphere{ point, 0.01f }; // 1cmの球を描画
-	Sphere closestpointSphere{ closestPoint, 0.01f };
-	
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -179,13 +175,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		viewportMatrix = MakeViewportMatrix(0, 0, kWindowWidth, kWindowHeight, 0.0f, 1.0f);
 		viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
-		Vector3 start = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
-		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
+		unsigned int color = BLACK;
+
+		// 球の衝突判定
+		float distanse = Length(Subtract(speere1.center, speere2.center));
+		// 半径の合計よりも短ければ衝突
+		if (distanse <= speere1.radius + speere2.radius){
+			
+			color = BLUE;
+
+		}
 
 		ImGui::Begin("window");
-		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.01f);
-		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.01f);
-		ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
+		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.1f);
+		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.1f);
+		ImGui::DragFloat3("sphere1", &speere1.center.x, 0.1f);
+		ImGui::DragFloat3("sphere2", &speere2.center.x, 0.1f);
 
 		ImGui::End();
 
@@ -197,15 +202,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		Novice::DrawLine(
-			static_cast<int>(start.x),
-			static_cast<int>(start.y),
-			static_cast<int>(end.x),
-			static_cast<int>(end.y),
-			WHITE);
-			
-		DrawSphere(pointSphere, viewProjectionMatrix, viewportMatrix, RED);
-		DrawSphere(closestpointSphere, viewProjectionMatrix, viewportMatrix, BLACK);
+		DrawSphere(speere1, worldViewProjectionMatrix, viewportMatrix, color);
+		DrawSphere(speere2, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
+
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
 		///
