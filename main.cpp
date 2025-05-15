@@ -175,6 +175,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		viewportMatrix = MakeViewportMatrix(0, 0, kWindowWidth, kWindowHeight, 0.0f, 1.0f);
 		viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
+		unsigned int color = BLACK;
+
+		// 球の衝突判定
+		float distanse = Length(Subtract(speere1.center, speere2.center));
+		// 半径の合計よりも短ければ衝突
+		if (distanse <= speere1.radius + speere2.radius){
+			
+			color = BLUE;
+
+		}
+
 		ImGui::Begin("window");
 		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.1f);
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.1f);
