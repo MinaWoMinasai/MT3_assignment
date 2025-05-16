@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include "algorithm"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_00";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_02";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -41,6 +41,11 @@ struct Ray {
 struct Segment {
 	Vector3 origin; // 始点
 	Vector3 diff; // 終点への差分ベクトル
+};
+
+struct Plane {
+	Vector3 normal; // 法線
+	float distance; // 距離
 };
 
 // 加算
@@ -118,6 +123,13 @@ Vector3 Project(const Vector3& v1, const Vector3& v2);
 // 接近接点
 Vector3 ClosestPoint(const Vector3& point, const Segment& segment);
 
+// 球と平面の衝突判定
+bool IsCollision(const Sphere& sphere, const Plane& plane);
+
+Vector3 Perpendiculer(const Vector3& vector);
+
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+
 // 4x4行列の数値表示
 const int kColumnWidth = 60;
 const int kRowHeight = 20;
@@ -150,9 +162,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	// 二つの球を用意
-	Sphere speere1 = { { -10.0f, 0.0f, 0.0f }, 10.0f }; 
-	Sphere speere2 = { { 10.0f, 0.0f, 0.0f }, 10.0f }; 
+	// 球を用意
+	Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 5.0f };
+
+	// 平面を用意
+	Plane plane = { { 0.0f, 1.0f, 0.0f }, 1.0f };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -177,22 +191,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		unsigned int color = BLACK;
 
-		// 球の衝突判定
-		float distanse = Length(Subtract(speere1.center, speere2.center));
-		// 半径の合計よりも短ければ衝突
-		if (distanse <= speere1.radius + speere2.radius){
-			
-			color = BLUE;
+		// 球と平面のあたり判定
+		if (IsCollision(sphere, plane)) {
+
+			color = RED;
 
 		}
 
 		ImGui::Begin("window");
 		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.1f);
-		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.1f);
-		ImGui::DragFloat3("sphere1", &speere1.center.x, 0.1f);
-		ImGui::DragFloat3("sphere2", &speere2.center.x, 0.1f);
+		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.05f);
+		ImGui::DragFloat3("sphere", &sphere.center.x, 0.1f);
+		ImGui::DragFloat3("plane", &plane.normal.x, 0.1f);
+		plane.normal = Normalize(plane.normal);
 
 		ImGui::End();
+
 
 		///
 		/// ↑更新処理ここまで
@@ -202,10 +216,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		DrawSphere(speere1, worldViewProjectionMatrix, viewportMatrix, color);
-		DrawSphere(speere2, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
+		DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, color);
 
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
+
+		DrawPlane(plane, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
 
 		///
 		/// ↑描画処理ここまで
@@ -859,6 +874,43 @@ Vector3 Project(const Vector3& v1, const Vector3& v2) {
 
 Vector3 ClosestPoint(const Vector3& point, const Segment& segment) {
 	return Add(segment.origin, Project(Subtract(point, segment.origin), segment.diff));
+}
+
+bool IsCollision(const Sphere& sphere, const Plane& plane) {
+
+	float distance = Dot(plane.normal, sphere.center) - plane.distance;
+	if (distance < 0.0f) {
+		distance *= -1.0f;
+	}
+	return distance < sphere.radius;
+
+}
+
+Vector3 Perpendiculer(const Vector3& vector) {
+	if (vector.x != 0.0f || vector.y != 0.0f) {
+		return { -vector.y, vector.x, 0.0f };
+	}
+	return{ 0.0f, -vector.z, vector.y };
+}
+
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	Vector3 center = Multiply(plane.distance, plane.normal);
+	Vector3 u = Normalize(Perpendiculer(plane.normal));
+	Vector3 v = Normalize(Cross(plane.normal, u));
+
+	float extent = 10.0f;
+	Vector3 corners[4];
+	corners[0] = Add(center, Add(Multiply(+extent, u), Multiply(+extent, v)));
+	corners[1] = Add(center, Add(Multiply(+extent, u), Multiply(-extent, v)));
+	corners[2] = Add(center, Add(Multiply(-extent, u), Multiply(-extent, v)));
+	corners[3] = Add(center, Add(Multiply(-extent, u), Multiply(+extent, v)));
+
+	for (int i = 0; i < 4; ++i) {
+		Vector3 p0 = Transform(Transform(corners[i], viewProjectionMatrix), viewportMatrix);
+		Vector3 p1 = Transform(Transform(corners[(i + 1) % 4], viewProjectionMatrix), viewportMatrix);
+		Novice::DrawLine(static_cast<int>(p0.x), static_cast<int>(p0.y),
+			static_cast<int>(p1.x), static_cast<int>(p1.y), color);
+	}
 }
 
 void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
