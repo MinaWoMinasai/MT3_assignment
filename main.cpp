@@ -210,6 +210,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("Segment.origin", &segment.origin.x, 0.1f);
 		ImGui::DragFloat3("Segment.diff", &segment.diff.x, 0.1f);
 		ImGui::DragFloat3("Plane.normal", &plane.normal.x, 0.1f);
+		ImGui::DragFloat("Plane.distance", &plane.distance, 0.1f);
 
 		plane.normal = Normalize(plane.normal);
 
