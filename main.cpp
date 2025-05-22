@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include "algorithm"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_02";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_03";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -126,6 +126,9 @@ Vector3 ClosestPoint(const Vector3& point, const Segment& segment);
 // 球と平面の衝突判定
 bool IsCollision(const Sphere& sphere, const Plane& plane);
 
+// 球と線分の衝突判定
+bool IsCollision(const Segment& segment, const Plane& plane);
+
 Vector3 Perpendiculer(const Vector3& vector);
 
 void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
@@ -165,6 +168,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 球を用意
 	Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 5.0f };
 
+	Segment segment = { {0.0f, 0.0f, 0.0f }, { 5.0f, 5.0f, 0.0f }
+};
+
 	// 平面を用意
 	Plane plane = { { 0.0f, 1.0f, 0.0f }, 1.0f };
 
@@ -192,7 +198,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		unsigned int color = BLACK;
 
 		// 球と平面のあたり判定
-		if (IsCollision(sphere, plane)) {
+		if (IsCollision(segment, plane)) {
 
 			color = RED;
 
@@ -201,8 +207,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("window");
 		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.1f);
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.05f);
-		ImGui::DragFloat3("sphere", &sphere.center.x, 0.1f);
-		ImGui::DragFloat3("plane", &plane.normal.x, 0.1f);
+		ImGui::DragFloat3("Segment.origin", &segment.origin.x, 0.1f);
+		ImGui::DragFloat3("Segment.diff", &segment.diff.x, 0.1f);
+		ImGui::DragFloat3("Plane.normal", &plane.normal.x, 0.1f);
+		ImGui::DragFloat("Plane.distance", &plane.distance, 0.1f);
+
 		plane.normal = Normalize(plane.normal);
 
 		ImGui::End();
@@ -216,7 +225,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, color);
+		
+		//DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, color);
+		Vector3 start = Transform(Transform(segment.origin, worldViewProjectionMatrix), viewportMatrix);
+		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), worldViewProjectionMatrix), viewportMatrix);
+
+		Novice::DrawLine(
+			int(start.x),
+			int(start.y),
+			int(end.x),
+			int(end.y),
+			color);
 
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
@@ -883,6 +902,20 @@ bool IsCollision(const Sphere& sphere, const Plane& plane) {
 		distance *= -1.0f;
 	}
 	return distance < sphere.radius;
+
+}
+
+bool IsCollision(const Segment& segment, const Plane& plane) {
+
+	float dot = Dot(plane.normal, segment.diff);
+
+	if (dot == 0.0f) {
+		return false;
+	}
+	float t = (plane.distance - Dot(plane.normal, segment.origin)) / dot;
+
+	// tの値と線の種類によって衝突しているかを判断する
+	return (0.0f <= t && t <= 1.0f);
 
 }
 
