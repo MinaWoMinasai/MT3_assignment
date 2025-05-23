@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include "algorithm"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_03";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_04";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -46,6 +46,10 @@ struct Segment {
 struct Plane {
 	Vector3 normal; // 法線
 	float distance; // 距離
+};
+
+struct Triangle {
+	Vector3 vertex[3]; // 頂点
 };
 
 // 加算
@@ -129,9 +133,14 @@ bool IsCollision(const Sphere& sphere, const Plane& plane);
 // 球と線分の衝突判定
 bool IsCollision(const Segment& segment, const Plane& plane);
 
+// 三角形と線のあたり判定
+bool IsCollision(const Segment& segment, const Triangle& triangle);
+
 Vector3 Perpendiculer(const Vector3& vector);
 
 void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+
+void DrawTriangle(const Triangle& triangle, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 // 4x4行列の数値表示
 const int kColumnWidth = 60;
@@ -165,14 +174,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	// 球を用意
-	Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 5.0f };
-
-	Segment segment = { {0.0f, 0.0f, 0.0f }, { 5.0f, 5.0f, 0.0f }
-};
+	Segment segment = { {0.0f, 0.0f, 0.0f }, { 5.0f, 5.0f, 0.0f }};
 
 	// 平面を用意
 	Plane plane = { { 0.0f, 1.0f, 0.0f }, 1.0f };
+
+	// 三角形
+	Triangle triangle = { { { -10.0f, 5.0f, 0.0f }, { 0.0f, 15.0f, 0.0f }, { 10.0f, 5.0f, 0.0f } } };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -197,8 +205,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		unsigned int color = BLACK;
 
-		// 球と平面のあたり判定
-		if (IsCollision(segment, plane)) {
+		// 線と三角形のあたり判定
+		if (IsCollision(segment, triangle)) {
 
 			color = RED;
 
@@ -209,8 +217,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.05f);
 		ImGui::DragFloat3("Segment.origin", &segment.origin.x, 0.1f);
 		ImGui::DragFloat3("Segment.diff", &segment.diff.x, 0.1f);
-		ImGui::DragFloat3("Plane.normal", &plane.normal.x, 0.1f);
-		ImGui::DragFloat("Plane.distance", &plane.distance, 0.1f);
+		ImGui::DragFloat3("Triangle.v0", &triangle.vertex[0].x, 0.1f);
+		ImGui::DragFloat3("Triangle.v1", &triangle.vertex[1].x, 0.1f);
+		ImGui::DragFloat3("Triangle.v2", &triangle.vertex[2].x, 0.1f);
 
 		plane.normal = Normalize(plane.normal);
 
@@ -237,9 +246,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			int(end.y),
 			color);
 
+		DrawTriangle(triangle, worldViewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
-		DrawPlane(plane, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
+		//DrawPlane(plane, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
 
 		///
 		/// ↑描画処理ここまで
@@ -919,6 +930,50 @@ bool IsCollision(const Segment& segment, const Plane& plane) {
 
 }
 
+bool IsCollision(const Segment& segment, const Triangle& triangle)
+{
+	// 三角形の点を結んだベクトルを作る
+	Vector3 v01 = Subtract(triangle.vertex[1], triangle.vertex[0]);
+	Vector3 v12 = Subtract(triangle.vertex[2], triangle.vertex[1]);
+	Vector3 v20 = Subtract(triangle.vertex[0], triangle.vertex[2]);
+	
+	Vector3 dir = Subtract(segment.diff, segment.origin); // 線分の方向ベクトル
+	Vector3 normal = Normalize(Cross(v01, v12));            // 三角形の法線
+
+	float d = Dot(normal, triangle.vertex[0]);
+	float denom = Dot(normal, dir);
+
+	// 平行チェック
+	if (fabs(denom) < 1e-6f) return false;
+
+	// 線分と平面の交点を t で求める（segment.origin + t * dir）
+	float t = (d - Dot(normal, segment.origin)) / denom;
+
+	// t が [0,1] の範囲外なら、交点は線分外にある
+	if (t < 0.0f || t > 1.0f) return false;
+
+	Vector3 intersection = Add(segment.origin, Multiply(t, dir));
+
+	// 頂点と衝突点pを結んだベクトルを作る
+	Vector3 v0p = Subtract(intersection, triangle.vertex[0]);
+	Vector3 v1p = Subtract(intersection, triangle.vertex[1]);
+	Vector3 v2p = Subtract(intersection, triangle.vertex[2]);
+	
+	// これらのベクトルのクロス積を取る
+	Vector3 cross01 = Cross(v01, v1p);
+	Vector3 cross12 = Cross(v12, v2p);
+	Vector3 cross20 = Cross(v20, v0p);
+
+	// すべての小三角形のクロス積と法線が同じ方向を向いていたら衝突
+	if (Dot(cross01, normal) >= 0.0f &&
+		Dot(cross12, normal) >= 0.0f &&
+		Dot(cross20, normal) >= 0.0f
+		) {
+		return true;
+	}
+	return false;
+}
+
 Vector3 Perpendiculer(const Vector3& vector) {
 	if (vector.x != 0.0f || vector.y != 0.0f) {
 		return { -vector.y, vector.x, 0.0f };
@@ -944,6 +999,26 @@ void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const 
 		Novice::DrawLine(static_cast<int>(p0.x), static_cast<int>(p0.y),
 			static_cast<int>(p1.x), static_cast<int>(p1.y), color);
 	}
+}
+
+void DrawTriangle(const Triangle& triangle, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color)
+{
+
+	// 3つの頂点をスクリーン座標に変換
+	Vector3 p0 = Transform(Transform(triangle.vertex[0], viewProjectionMatrix), viewportMatrix);
+	Vector3 p1 = Transform(Transform(triangle.vertex[1], viewProjectionMatrix), viewportMatrix);
+	Vector3 p2 = Transform(Transform(triangle.vertex[2], viewProjectionMatrix), viewportMatrix);
+
+	// 三角形を描画
+	Novice::DrawTriangle(
+		static_cast<int>(p0.x),
+		static_cast<int>(p0.y),
+		static_cast<int>(p1.x),
+		static_cast<int>(p1.y),
+		static_cast<int>(p2.x),
+		static_cast<int>(p2.y),
+		color, kFillModeWireFrame
+	);
 }
 
 void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
