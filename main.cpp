@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include "algorithm"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_05";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_06";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -149,6 +149,9 @@ bool IsCollision(const Segment& segment, const Triangle& triangle);
 // 直方体と直方体の当たり判定
 bool IsCollision(const AABB& aabb1, const AABB& aabb2);
 
+// 球と直方体のあたり判定
+bool IsCollision(const AABB& aabb, const Sphere sphere);
+
 Vector3 Perpendiculer(const Vector3& vector);
 
 void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
@@ -198,14 +201,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 viewportMatrix;
 
 	// 直方体
-	AABB aabb1{
+	AABB aabb{
 		.min = {0.0f, 0.0f, 0.0f},
 		.max = {5.0f, 5.0f, 5.0f },
 	};
-	AABB aabb2{
-		.min = {2.0f, 2.0f, 2.0f },
-		.max = {10.0f, 10.0f, 10.0f},
-	};
+
+	// 球を用意
+	Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 5.0f };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -231,36 +233,39 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		unsigned int color = WHITE;
 
 		// 線と三角形のあたり判定
-		if (IsCollision(aabb1, aabb2)) {
+		if (IsCollision(aabb, sphere)) {
 
 			color = RED;
 
 		}
 
 		ImGuiIO& io = ImGui::GetIO();
+		bool imguiWantsMouse = io.WantCaptureMouse;
 
-		// マウスホイールで前後移動
-		if (io.MouseWheel != 0.0f) {
-			float moveSpeed = 1.0f; // 適宜調整
-			cameraTranslate.z += io.MouseWheel * moveSpeed;
-		}
+		if (!imguiWantsMouse) {
+			// マウスホイールで前後移動
+			if (io.MouseWheel != 0.0f) {
+				float moveSpeed = 1.0f; // 適宜調整
+				cameraTranslate.z += io.MouseWheel * moveSpeed;
+			}
 
-		// 左ドラッグで見渡す（回転）
-		if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-			float rotateSpeed = 0.01f;
-			ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
-			cameraRotate.y += delta.x * rotateSpeed;
-			cameraRotate.x += delta.y * rotateSpeed;
-			ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left); // 差分をリセット
-		}
+			// 左ドラッグで見渡す（回転）
+			if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+				float rotateSpeed = 0.01f;
+				ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+				cameraRotate.y += delta.x * rotateSpeed;
+				cameraRotate.x += delta.y * rotateSpeed;
+				ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left); // 差分をリセット
+			}
 
-		// 中ドラッグで平行移動
-		if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-			float panSpeed = 0.01f;
-			ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
-			cameraTranslate.x -= delta.x * panSpeed;
-			cameraTranslate.y += delta.y * panSpeed;
-			ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+			// 中ドラッグで平行移動
+			if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+				float panSpeed = 0.01f;
+				ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+				cameraTranslate.x -= delta.x * panSpeed;
+				cameraTranslate.y += delta.y * panSpeed;
+				ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+			}
 		}
 
 		// === カメラ行列を更新 ===
@@ -269,14 +274,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("window");
 		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.1f);
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.05f);
-		ImGui::DragFloat3("aabb1.min", &aabb1.min.x, 0.1f);
-		ImGui::DragFloat3("aabb1.max", &aabb1.max.x, 0.1f);
-		ImGui::DragFloat3("aabb2.min", &aabb2.min.x, 0.1f);
-		ImGui::DragFloat3("aabb2.max", &aabb2.max.x, 0.1f);
+		ImGui::DragFloat3("aabb.min", &aabb.min.x, 0.1f);
+		ImGui::DragFloat3("aabb.max", &aabb.max.x, 0.1f);
+		ImGui::DragFloat3("sphere.center", &sphere.center.x, 0.1f);
+		ImGui::DragFloat("sphere.radius", &sphere.radius, 0.1f);
 
 		// minとmaxの値が入れ替わらないようにする
-		PreventingSubstitutions(aabb1);
-		PreventingSubstitutions(aabb2);
+		PreventingSubstitutions(aabb);
 
 		ImGui::End();
 
@@ -290,8 +294,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
-		DrawAABB(aabb1, worldViewProjectionMatrix, viewportMatrix, color);
-		DrawAABB(aabb2, worldViewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawAABB(aabb, worldViewProjectionMatrix, viewportMatrix, color);
+		DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
@@ -1073,6 +1077,24 @@ bool IsCollision(const AABB& aabb1, const AABB& aabb2)
 		(aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z)) {
 		return true;
 	}
+	return false;
+}
+
+bool IsCollision(const AABB& aabb, const Sphere sphere)
+{
+	Vector3 closetpoint{
+		std::clamp(sphere.center.x, aabb.min.x, aabb.max.x),
+		std::clamp(sphere.center.y, aabb.min.y, aabb.max.y),
+		std::clamp(sphere.center.z, aabb.min.z, aabb.max.z),
+	};
+	// 最近接点と球の中心との距離を求める
+	float distance = Length(Subtract(closetpoint, sphere.center));
+	// 距離が半径よりも小さければ衝突
+	if (distance <= sphere.radius) {
+		// 衝突
+		return true;
+	}
+
 	return false;
 }
 
