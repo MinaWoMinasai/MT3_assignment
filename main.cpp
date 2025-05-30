@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include "algorithm"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_04";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_05";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -50,6 +50,11 @@ struct Plane {
 
 struct Triangle {
 	Vector3 vertex[3]; // 頂点
+};
+
+struct AABB {
+	Vector3 min; // 最小値
+	Vector3 max; // 最大値
 };
 
 // 加算
@@ -117,9 +122,14 @@ Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float botto
 // ビューポート変換行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth);
 
+// 球の描画
 void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
+// グリッドの描画
 void DrowGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix);
+
+// 直方体の描画
+void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 // 正射影ベクトル
 Vector3 Project(const Vector3& v1, const Vector3& v2);
@@ -136,6 +146,9 @@ bool IsCollision(const Segment& segment, const Plane& plane);
 // 三角形と線のあたり判定
 bool IsCollision(const Segment& segment, const Triangle& triangle);
 
+// 直方体と直方体の当たり判定
+bool IsCollision(const AABB& aabb1, const AABB& aabb2);
+
 Vector3 Perpendiculer(const Vector3& vector);
 
 void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
@@ -149,6 +162,16 @@ void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label
 
 // 3次元ベクトルの数値表示
 void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label);
+
+// 入れ替わり防止
+void PreventingSubstitutions(AABB aabb) {
+	aabb.min.x = (std::min)(aabb.min.x, aabb.max.x);
+	aabb.max.x = (std::max)(aabb.min.x, aabb.max.x);
+	aabb.min.y = (std::min)(aabb.min.y, aabb.max.y);
+	aabb.max.y = (std::max)(aabb.min.y, aabb.max.y);
+	aabb.min.z = (std::min)(aabb.min.z, aabb.max.z);
+	aabb.max.z = (std::max)(aabb.min.z, aabb.max.z);
+}
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -174,13 +197,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	Segment segment = { {0.0f, 0.0f, 0.0f }, { 5.0f, 5.0f, 0.0f }};
-
-	// 平面を用意
-	Plane plane = { { 0.0f, 1.0f, 0.0f }, 1.0f };
-
-	// 三角形
-	Triangle triangle = { { { -10.0f, 5.0f, 0.0f }, { 0.0f, 15.0f, 0.0f }, { 10.0f, 5.0f, 0.0f } } };
+	// 直方体
+	AABB aabb1{
+		.min = {0.0f, 0.0f, 0.0f},
+		.max = {5.0f, 5.0f, 5.0f },
+	};
+	AABB aabb2{
+		.min = {2.0f, 2.0f, 2.0f },
+		.max = {10.0f, 10.0f, 10.0f},
+	};
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -203,28 +228,57 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		viewportMatrix = MakeViewportMatrix(0, 0, kWindowWidth, kWindowHeight, 0.0f, 1.0f);
 		viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
-		unsigned int color = BLACK;
+		unsigned int color = WHITE;
 
 		// 線と三角形のあたり判定
-		if (IsCollision(segment, triangle)) {
+		if (IsCollision(aabb1, aabb2)) {
 
 			color = RED;
 
 		}
 
+		ImGuiIO& io = ImGui::GetIO();
+
+		// マウスホイールで前後移動
+		if (io.MouseWheel != 0.0f) {
+			float moveSpeed = 1.0f; // 適宜調整
+			cameraTranslate.z += io.MouseWheel * moveSpeed;
+		}
+
+		// 左ドラッグで見渡す（回転）
+		if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+			float rotateSpeed = 0.01f;
+			ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+			cameraRotate.y += delta.x * rotateSpeed;
+			cameraRotate.x += delta.y * rotateSpeed;
+			ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left); // 差分をリセット
+		}
+
+		// 中ドラッグで平行移動
+		if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+			float panSpeed = 0.01f;
+			ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+			cameraTranslate.x -= delta.x * panSpeed;
+			cameraTranslate.y += delta.y * panSpeed;
+			ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+		}
+
+		// === カメラ行列を更新 ===
+		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
+
 		ImGui::Begin("window");
 		ImGui::DragFloat3("cameraTranslate", &cameraTranslate.x, 0.1f);
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.05f);
-		ImGui::DragFloat3("Segment.origin", &segment.origin.x, 0.1f);
-		ImGui::DragFloat3("Segment.diff", &segment.diff.x, 0.1f);
-		ImGui::DragFloat3("Triangle.v0", &triangle.vertex[0].x, 0.1f);
-		ImGui::DragFloat3("Triangle.v1", &triangle.vertex[1].x, 0.1f);
-		ImGui::DragFloat3("Triangle.v2", &triangle.vertex[2].x, 0.1f);
+		ImGui::DragFloat3("aabb1.min", &aabb1.min.x, 0.1f);
+		ImGui::DragFloat3("aabb1.max", &aabb1.max.x, 0.1f);
+		ImGui::DragFloat3("aabb2.min", &aabb2.min.x, 0.1f);
+		ImGui::DragFloat3("aabb2.max", &aabb2.max.x, 0.1f);
 
-		plane.normal = Normalize(plane.normal);
+		// minとmaxの値が入れ替わらないようにする
+		PreventingSubstitutions(aabb1);
+		PreventingSubstitutions(aabb2);
 
 		ImGui::End();
-
 
 		///
 		/// ↑更新処理ここまで
@@ -234,23 +288,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		
-		//DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, color);
-		Vector3 start = Transform(Transform(segment.origin, worldViewProjectionMatrix), viewportMatrix);
-		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), worldViewProjectionMatrix), viewportMatrix);
-
-		Novice::DrawLine(
-			int(start.x),
-			int(start.y),
-			int(end.x),
-			int(end.y),
-			color);
-
-		DrawTriangle(triangle, worldViewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
-
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
-		//DrawPlane(plane, worldViewProjectionMatrix, viewportMatrix, 0x000000FF);
+		DrawAABB(aabb1, worldViewProjectionMatrix, viewportMatrix, color);
+		DrawAABB(aabb2, worldViewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
@@ -809,13 +850,19 @@ void DrowGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 		Vector3 startScreen = Transform(Transform(start, viewProjectionMatrix), viewportMatrix);
 		Vector3 endScreen = Transform(Transform(end, viewProjectionMatrix), viewportMatrix);
 
+		unsigned int color = 0xAAAAAAFF;
+		// 線が原点を通る場合は色を黒にする
+		if (xPos == 0) {
+			color = 0x000000FF;
+		}
+
 		// 変換した座標を使って表示
 		Novice::DrawLine(
 			static_cast<int>(startScreen.x),
 			static_cast<int>(startScreen.y),
 			static_cast<int>(endScreen.x),
 			static_cast<int>(endScreen.y),
-			0x000000FF);
+			color);
 
 	}
 
@@ -831,14 +878,59 @@ void DrowGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 		Vector3 startScreen = Transform(Transform(start, viewProjectionMatrix), viewportMatrix);
 		Vector3 endScreen = Transform(Transform(end, viewProjectionMatrix), viewportMatrix);
 
+		unsigned int color = 0xAAAAAAFF;
+		// 線が原点を通る場合は色を黒にする
+		if (zPos == 0) {
+			color = 0x000000FF;
+		}
+
 		// 変換した座標を使って表示
 		Novice::DrawLine(
 			static_cast<int>(startScreen.x),
 			static_cast<int>(startScreen.y),
 			static_cast<int>(endScreen.x),
 			static_cast<int>(endScreen.y),
-			0x000000FF);
+			color);
 
+	}
+}
+
+void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color)
+{
+
+	Vector3 min = aabb.min;
+	Vector3 max = aabb.max;
+	// 8点を求める
+	Vector3 points[8] = {
+		{ min.x, min.y, min.z },
+		{ max.x, min.y, min.z },
+		{ min.x, max.y, min.z },
+		{ max.x, max.y, min.z },
+		{ min.x, min.y, max.z },
+		{ max.x, min.y, max.z },
+		{ min.x, max.y, max.z },
+		{ max.x, max.y, max.z }
+	};
+	for (int i = 0; i < 8; ++i) {
+		points[i] = Transform(Transform(points[i], viewProjectionMatrix), viewportMatrix);
+	}
+
+	// 線を引くべき点のペア（インデックス）
+	int indices[12][2] = {
+		{0, 1}, {1, 3}, {3, 2}, {2, 0}, // 前面
+		{4, 5}, {5, 7}, {7, 6}, {6, 4}, // 背面
+		{0, 4}, {1, 5}, {2, 6}, {3, 7}  // 側面をつなぐ縦線
+	};
+
+	// 線を描画
+	for (int i = 0; i < 12; ++i) {
+		const Vector3& p0 = points[indices[i][0]];
+		const Vector3& p1 = points[indices[i][1]];
+		Novice::DrawLine(
+			static_cast<int>(p0.x), static_cast<int>(p0.y),
+			static_cast<int>(p1.x), static_cast<int>(p1.y),
+			color
+		);
 	}
 }
 
@@ -936,7 +1028,7 @@ bool IsCollision(const Segment& segment, const Triangle& triangle)
 	Vector3 v01 = Subtract(triangle.vertex[1], triangle.vertex[0]);
 	Vector3 v12 = Subtract(triangle.vertex[2], triangle.vertex[1]);
 	Vector3 v20 = Subtract(triangle.vertex[0], triangle.vertex[2]);
-	
+
 	Vector3 dir = Subtract(segment.diff, segment.origin); // 線分の方向ベクトル
 	Vector3 normal = Normalize(Cross(v01, v12));            // 三角形の法線
 
@@ -958,7 +1050,7 @@ bool IsCollision(const Segment& segment, const Triangle& triangle)
 	Vector3 v0p = Subtract(intersection, triangle.vertex[0]);
 	Vector3 v1p = Subtract(intersection, triangle.vertex[1]);
 	Vector3 v2p = Subtract(intersection, triangle.vertex[2]);
-	
+
 	// これらのベクトルのクロス積を取る
 	Vector3 cross01 = Cross(v01, v1p);
 	Vector3 cross12 = Cross(v12, v2p);
@@ -969,6 +1061,16 @@ bool IsCollision(const Segment& segment, const Triangle& triangle)
 		Dot(cross12, normal) >= 0.0f &&
 		Dot(cross20, normal) >= 0.0f
 		) {
+		return true;
+	}
+	return false;
+}
+
+bool IsCollision(const AABB& aabb1, const AABB& aabb2)
+{
+	if ((aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) &&
+		(aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) &&
+		(aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z)) {
 		return true;
 	}
 	return false;
