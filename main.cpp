@@ -190,7 +190,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char preKeys[256] = { 0 };
 
 	Vector3 rotate{ 0.0f, 0.0f, 0.0f };
-	Vector3 translate{ 0.0f, -5.0f, 15.0f };
+	Vector3 translate{ 0.0f, -15.0f, 50.0f };
 
 	Vector3 cameraTranslate{ 0.0f, 1.9f, -6.49f };
 	Vector3 cameraRotate{ 0.26f, 0.0f, 0.0f };
@@ -205,8 +205,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// 直方体
 	AABB aabb{
-		.min = {-0.5f, -0.5f, -0.5f},
-		.max = {0.5f, 0.5f, 0.5f },
+		.min = {0.0f, 0.0f, 0.0f},
+		.max = {5.0f, 5.0f, 5.0f },
 	};
 
 	// 線
@@ -1113,7 +1113,7 @@ bool IsCollision(const AABB& aabb, const Sphere &sphere)
 }
 
 bool IsCollision(const AABB& aabb, const Segment& segment) {
-	Vector3 dir = Subtract(segment.diff, segment.origin);
+	Vector3 dir = segment.diff; // 方向ベクトル（差分）
 
 	float tmin = 0.0f; // 線分始点
 	float tmax = 1.0f; // 線分終点
