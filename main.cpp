@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include "algorithm"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_06";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_07";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -150,7 +150,10 @@ bool IsCollision(const Segment& segment, const Triangle& triangle);
 bool IsCollision(const AABB& aabb1, const AABB& aabb2);
 
 // 球と直方体のあたり判定
-bool IsCollision(const AABB& aabb, const Sphere sphere);
+bool IsCollision(const AABB& aabb, const Sphere& sphere);
+
+// 直方体と線の当たり判定
+bool IsCollision(const AABB& aabb, const Segment& segmrnt);
 
 Vector3 Perpendiculer(const Vector3& vector);
 
@@ -187,7 +190,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char preKeys[256] = { 0 };
 
 	Vector3 rotate{ 0.0f, 0.0f, 0.0f };
-	Vector3 translate{ 0.0f, -15.0f, 50.0f };
+	Vector3 translate{ 0.0f, -5.0f, 15.0f };
 
 	Vector3 cameraTranslate{ 0.0f, 1.9f, -6.49f };
 	Vector3 cameraRotate{ 0.26f, 0.0f, 0.0f };
@@ -202,12 +205,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// 直方体
 	AABB aabb{
-		.min = {0.0f, 0.0f, 0.0f},
-		.max = {5.0f, 5.0f, 5.0f },
+		.min = {-0.5f, -0.5f, -0.5f},
+		.max = {0.5f, 0.5f, 0.5f },
 	};
 
-	// 球を用意
-	Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 5.0f };
+	// 線
+	Segment segment{
+		.origin{-0.7f, 0.3f, 0.0f},
+		.diff{2.0f, -0.5f, 0.0f}
+	};
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -233,7 +239,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		unsigned int color = WHITE;
 
 		// 線と三角形のあたり判定
-		if (IsCollision(aabb, sphere)) {
+		if (IsCollision(aabb, segment)) {
 
 			color = RED;
 
@@ -276,8 +282,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("cameraRotate", &cameraRotate.x, 0.05f);
 		ImGui::DragFloat3("aabb.min", &aabb.min.x, 0.1f);
 		ImGui::DragFloat3("aabb.max", &aabb.max.x, 0.1f);
-		ImGui::DragFloat3("sphere.center", &sphere.center.x, 0.1f);
-		ImGui::DragFloat("sphere.radius", &sphere.radius, 0.1f);
+		ImGui::DragFloat3("segment.origin", &segment.origin.x, 0.1f);
+		ImGui::DragFloat3("segment.diff", &segment.diff.x, 0.1f);
 
 		// minとmaxの値が入れ替わらないようにする
 		PreventingSubstitutions(aabb);
@@ -295,7 +301,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
 		DrawAABB(aabb, worldViewProjectionMatrix, viewportMatrix, color);
-		DrawSphere(sphere, worldViewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		Vector3 start = Transform(Transform(segment.origin, worldViewProjectionMatrix), viewportMatrix);
+		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), worldViewProjectionMatrix), viewportMatrix);
+
+		Novice::DrawLine(
+			int(start.x),
+			int(start.y),
+			int(end.x),
+			int(end.y),
+			color);
 
 		///
 		/// ↑描画処理ここまで
@@ -1080,7 +1094,7 @@ bool IsCollision(const AABB& aabb1, const AABB& aabb2)
 	return false;
 }
 
-bool IsCollision(const AABB& aabb, const Sphere sphere)
+bool IsCollision(const AABB& aabb, const Sphere &sphere)
 {
 	Vector3 closetpoint{
 		std::clamp(sphere.center.x, aabb.min.x, aabb.max.x),
@@ -1096,6 +1110,46 @@ bool IsCollision(const AABB& aabb, const Sphere sphere)
 	}
 
 	return false;
+}
+
+bool IsCollision(const AABB& aabb, const Segment& segment) {
+	Vector3 dir = Subtract(segment.diff, segment.origin);
+
+	float tmin = 0.0f; // 線分始点
+	float tmax = 1.0f; // 線分終点
+
+	for (int i = 0; i < 3; ++i) {
+		float origin = (i == 0) ? segment.origin.x : (i == 1) ? segment.origin.y : segment.origin.z;
+		float direction = (i == 0) ? dir.x : (i == 1) ? dir.y : dir.z;
+		float slabMin = (i == 0) ? aabb.min.x : (i == 1) ? aabb.min.y : aabb.min.z;
+		float slabMax = (i == 0) ? aabb.max.x : (i == 1) ? aabb.max.y : aabb.max.z;
+
+		if (fabsf(direction) < 1e-6f) {
+			// 平行な場合、始点がAABB内にないと交差しない
+			if (origin < slabMin || origin > slabMax) {
+				return false;
+			}
+		} else {
+			float t1 = (slabMin - origin) / direction;
+			float t2 = (slabMax - origin) / direction;
+
+			if (t1 > t2) {
+				float temp = t1;
+				t1 = t2;
+				t2 = temp;
+			}
+
+			tmin = (t1 > tmin) ? t1 : tmin;
+			tmax = (t2 < tmax) ? t2 : tmax;
+
+			if (tmin > tmax) {
+				return false;
+			}
+		}
+	}
+
+	// すべて当たっていたら
+	return true;
 }
 
 Vector3 Perpendiculer(const Vector3& vector) {
