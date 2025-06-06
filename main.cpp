@@ -3,7 +3,7 @@
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題02_08";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題03_00";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
