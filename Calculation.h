@@ -9,6 +9,12 @@ const float pi = 3.14159265f;
 // 三次元ベクトル
 struct Vector3 {
 	float x, y, z;
+
+	inline Vector3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
+	inline Vector3& operator-=(const Vector3& v) { x -= v.x; y -= v.y; z -= v.z; }
+	inline Vector3& operator+=(const Vector3& v) { x += v.x; y += v.y; z += v.z; }
+	inline Vector3& operator/=(float s) { x /= s; y /= s; z /= s; return *this; }
+
 };
 
 // 4x4の行列
@@ -175,3 +181,16 @@ void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label);
 // 入れ替わり防止
 void PreventingSubstitutions(AABB aabb);
 
+// 演算子オーバーロード
+inline Vector3 operator+(const Vector3& v1, const Vector3& v2) { return Add(v1, v2); }
+inline Vector3 operator-(const Vector3& v1, const Vector3& v2) { return Subtract(v1, v2); }
+inline Vector3 operator*(const float& s, const Vector3& v) { return Multiply(s, v); }
+inline Vector3 operator*(const Vector3& v, const float& s) { return Multiply(s, v); }
+inline Vector3 operator/(const Vector3& v, const float& s) { return Multiply(1.0f / s, v); }
+inline Matrix4x4 operator+(const Matrix4x4& m1, const Matrix4x4& m2) { return Add(m1, m2); }
+inline Matrix4x4 operator-(const Matrix4x4& m1, const Matrix4x4& m2) { return Subtract(m1, m2); }
+inline Matrix4x4 operator*(const Matrix4x4& m1, const Matrix4x4& m2) { return Multiply(m1, m2); }
+
+// 単項演算子
+inline Vector3 operator-(const Vector3& v) { return { -v.x, -v.y, -v.z }; }
+inline Vector3 operator+(const Vector3& v) { return v; }
