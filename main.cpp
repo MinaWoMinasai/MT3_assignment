@@ -3,7 +3,7 @@
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題03_00";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題03_01";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -40,6 +40,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		{0.94f, -0.7f, 2.3f},
 	};
 
+	// 階層構造
+	Vector3 translates[3] = {
+		{0.2f, 1.0f, 0.0f},
+		{0.4f, 0.0f, 0.0f},
+		{0.3f, 0.0f, 0.0f},
+	};
+
+	Vector3 rotates[3] = {
+		{0.0f, 0.0f, -6.8f},
+		{0.0f, 0.0f, -1.4f},
+		{0.0f, 0.0f, 0.0f },
+	};
+
+	Vector3 scales[3] = {
+		{1.0f, 1.0f, 1.0f},
+		{1.0f, 1.0f, 1.0f},
+		{1.0f, 1.0f, 1.0f},
+	};
+
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -60,6 +79,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 		viewportMatrix = MakeViewportMatrix(0, 0, kWindowWidth, kWindowHeight, 0.0f, 1.0f);
 		viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
+
+		// ローカルとワールドの階層構造変数を宣言する
+		Matrix4x4 local0 = MakeAffineMatrix(scales[0], rotates[0], translates[0]);
+		Matrix4x4 world0 = local0;
+
+		Matrix4x4 local1 = MakeAffineMatrix(scales[1], rotates[1], translates[1]);
+		Matrix4x4 world1 = Multiply(local1, world0);
+
+		Matrix4x4 local2 = MakeAffineMatrix(scales[2], rotates[2], translates[2]);
+		Matrix4x4 world2 = Multiply(local2, world1);
 
 		ImGuiIO& io = ImGui::GetIO();
 		bool imguiWantsMouse = io.WantCaptureMouse;
@@ -94,9 +123,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
 
 		ImGui::Begin("window");
-		ImGui::DragFloat3("controlPoint0", &controlPoints[0].x, 0.1f);
-		ImGui::DragFloat3("controlPoint1", &controlPoints[1].x, 0.1f);
-		ImGui::DragFloat3("controlPoint2", &controlPoints[2].x, 0.1f);
+		ImGui::DragFloat3("localScale0", &scales[0].x, 0.1f);
+		ImGui::DragFloat3("localRotate0", &rotates[0].x, 0.1f);
+		ImGui::DragFloat3("localTranslate0", &translates[0].x, 0.1f);
+		ImGui::DragFloat3("localScale1", &scales[1].x, 0.1f);
+		ImGui::DragFloat3("localRotate1", &rotates[1].x, 0.1f);
+		ImGui::DragFloat3("localTranslate1", &translates[1].x, 0.1f);
+		ImGui::DragFloat3("localScale2", &scales[2].x, 0.1f);
+		ImGui::DragFloat3("localRotate2", &rotates[2].x, 0.1f);
+		ImGui::DragFloat3("localTranslate2", &translates[2].x, 0.1f);
 
 		ImGui::End();
 
@@ -110,8 +145,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
-		// ベジェ曲線を描画
-		DrawBezier(controlPoints[0], controlPoints[1], controlPoints[2], viewProjectionMatrix, viewportMatrix, 0x00FF00FF);
+		// 各点のワールド位置
+		Vector3 pos0 = Transform({ 0, 0, 0 }, world0);  // 肩の位置
+		Vector3 pos1 = Transform({ 0, 0, 0 }, world1);  // 肘の位置（肩の子）
+		Vector3 pos2 = Transform({ 0, 0, 0 }, world2);  // 手の位置（肘の子）
+
+		// 三点をスクリーン座標に変換
+		Vector3 screenWorldTranslate0 = Transform(Transform(pos0, viewProjectionMatrix), viewportMatrix);
+		Vector3 screenWorldTranslate1 = Transform(Transform(pos1, viewProjectionMatrix), viewportMatrix);
+		Vector3 screenWorldTranslate2 = Transform(Transform(pos2, viewProjectionMatrix), viewportMatrix);
+
+		// 三点で線を引く
+		Novice::DrawLine(
+			static_cast<int>(screenWorldTranslate0.x),
+			static_cast<int>(screenWorldTranslate0.y),
+			static_cast<int>(screenWorldTranslate1.x),
+			static_cast<int>(screenWorldTranslate1.y),
+			0x11CC11FF
+		);
+		Novice::DrawLine(
+			static_cast<int>(screenWorldTranslate1.x),
+			static_cast<int>(screenWorldTranslate1.y),
+			static_cast<int>(screenWorldTranslate2.x),
+			static_cast<int>(screenWorldTranslate2.y),
+			0x11CC11FF
+		);
+
+		// 三点に球を描画する
+		DrawSphere(Sphere(pos0, 0.01f), viewProjectionMatrix, viewportMatrix, RED);
+		DrawSphere(Sphere(pos1, 0.01f), viewProjectionMatrix, viewportMatrix, GREEN);
+		DrawSphere(Sphere(pos2, 0.01f), viewProjectionMatrix, viewportMatrix, BLUE);
 
 		///
 		/// ↑描画処理ここまで
