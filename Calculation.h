@@ -11,8 +11,8 @@ struct Vector3 {
 	float x, y, z;
 
 	inline Vector3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
-	inline Vector3& operator-=(const Vector3& v) { x -= v.x; y -= v.y; z -= v.z; }
-	inline Vector3& operator+=(const Vector3& v) { x += v.x; y += v.y; z += v.z; }
+	inline Vector3& operator-=(const Vector3& v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
+	inline Vector3& operator+=(const Vector3& v) { x += v.x; y += v.y; z += v.z; return *this; }
 	inline Vector3& operator/=(float s) { x /= s; y /= s; z /= s; return *this; }
 
 };
@@ -55,6 +55,24 @@ struct Triangle {
 struct AABB {
 	Vector3 min; // 最小値
 	Vector3 max; // 最大値
+};
+
+struct Spring {
+	// アンカー。固定された端の位置
+	Vector3 anchor;
+	float naturalLength; // 自然長
+	float stiffness; // 剛性。ばね定数k
+	float dampingCoefficient; // 減衰係数
+};
+
+struct Ball
+{
+	Vector3 position;
+	Vector3 velocity;
+	Vector3 acceleration;
+	float mass;
+	float radius;
+	unsigned int color;
 };
 
 // 加算
