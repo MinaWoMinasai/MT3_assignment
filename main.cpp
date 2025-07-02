@@ -3,7 +3,7 @@
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_00";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_01";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -33,18 +33,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	// ばね
-	Spring spring{};
-	spring.anchor = { 0.0f, 0.0f, 0.0f };
-	spring.naturalLength = 1.0f;
-	spring.stiffness = 100.0f;
-	spring.dampingCoefficient = 2.0f;
+	// 円速度
+	float angularVelocity = 3.14f;
+	float angle = 0.0f;
 
-	Ball ball{};
-	ball.position = { 1.2f, 0.0f, 0.0f };
-	ball.mass = 2.0f;
-	ball.radius = 0.05f;
-	ball.color = BLUE;
+	// 中心と半径
+	Vector3 center = { 0.0f, 0.0f, 0.0f };
+	float radius = 0.8f;
+
+	// 円周上の座標
+	Vector3 p = {0.0f, 0.0f, 0.0f};
 
 	float deltaTime = 1.0f / 60.0f;
 
@@ -67,28 +65,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			isStart = true;
 		}
 
+		// 円運動
 		if (isStart) {
-
-			Vector3 diff = ball.position - spring.anchor;
-			float length = Length(diff);
-			if (length != 0.0f) {
-				Vector3 direction = Normalize(diff);
-				Vector3 restPosition = spring.anchor + direction * spring.naturalLength;
-				Vector3 displacement = length * (ball.position - restPosition);
-				Vector3 restoringForce = -spring.stiffness * displacement;
-				// 減衰抵抗を計算する
-				Vector3 dampingForce = -spring.dampingCoefficient * ball.velocity;
-				// 距離元帥も加味して、物体にかかる力を決定する
-				Vector3 force = restoringForce + dampingForce;
-				ball.acceleration = force / ball.mass;
-			}
-
-			// 加速度も速度もどちらも秒を基準とした値である
-			// それが、1/60秒間(deltaTime)適用されたと考える
-			ball.velocity += ball.acceleration * deltaTime;
-			ball.position += ball.velocity * deltaTime;
+			angle += angularVelocity * deltaTime;
 		}
 
+		// 座標更新
+		p.x = center.x + std::cos(angle) * radius;
+		p.y = center.y + std::sin(angle) * radius;
+		p.z = center.z;
+		
 		worldMatrix = MakeAffineMatrix({ 1.0f, 1.0f,1.0f }, rotate, translate);
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
 		viewMatrix = Inverse(cameraMatrix);
@@ -145,20 +131,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
-		// ばねの位置をスクリーン座標に変換
-		Vector3 screenSpringOrigin = Transform(Transform(spring.anchor, worldViewProjectionMatrix), viewportMatrix);
-		Vector3 screenSpringDiff = Transform(Transform(ball.position, worldViewProjectionMatrix), viewportMatrix);
+		//	点の位置をスクリーン座標に変換
+		Vector3 screenOrigin = Transform(Transform(center, worldViewProjectionMatrix), viewportMatrix);
+		Vector3 screenDiff = Transform(Transform(p, worldViewProjectionMatrix), viewportMatrix);
 
-		Novice::DrawLine(
-			static_cast<int>(screenSpringOrigin.x),
-			static_cast<int>(screenSpringOrigin.y),
-			static_cast<int>(screenSpringDiff.x),
-			static_cast<int>(screenSpringDiff.y),
+		Novice::DrawLine( 
+			static_cast<int>(screenOrigin.x),
+			static_cast<int>(screenOrigin.y),
+			static_cast<int>(screenDiff.x),
+			static_cast<int>(screenDiff.y),
 			0xFFFFFFFF
 		);
 
 		// 球を描画する
-		DrawSphere(Sphere(ball.position, ball.radius), worldViewProjectionMatrix, viewportMatrix, 0x00FF00FF);
+		DrawSphere(Sphere(p, 0.02f), worldViewProjectionMatrix, viewportMatrix, 0x00FF00FF);
 
 		///
 		/// ↑描画処理ここまで
