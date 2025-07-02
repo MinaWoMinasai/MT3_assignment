@@ -538,7 +538,7 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 }
 
 void DrowGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix) {
-	const float kGridHalfwidth = 15.0f; // Gridの半分の幅
+	const float kGridHalfwidth = 5.0f; // Gridの半分の幅
 	const uint32_t kSubdivision = 10; // 分割数
 	const float kGridEvery = (kGridHalfwidth * 2.0f) / float(kSubdivision); // 1つ分の長さ
 	// 奥から手前の線を徐々に引いていく
