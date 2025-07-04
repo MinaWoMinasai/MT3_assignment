@@ -75,6 +75,14 @@ struct Ball
 	unsigned int color;
 };
 
+struct Pendulum {
+	Vector3 anchor;
+	float length;
+	float angle;
+	float anglerVelocity;
+	float angularAcceleration;
+};
+
 // 加算
 Vector3 Add(const Vector3& v1, const Vector3& v2);
 

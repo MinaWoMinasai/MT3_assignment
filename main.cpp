@@ -3,7 +3,7 @@
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_01";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_02";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -33,18 +33,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	// 円速度
-	float angularVelocity = 3.14f;
-	float angle = 0.0f;
-
-	// 中心と半径
-	Vector3 center = { 0.0f, 0.0f, 0.0f };
-	float radius = 0.8f;
-
-	// 円周上の座標
+	// 振り子上の点の座標
 	Vector3 p = {0.0f, 0.0f, 0.0f};
 
 	float deltaTime = 1.0f / 60.0f;
+
+	Pendulum pendulum;
+	pendulum.anchor = { 0.0f, 1.0f, 0.0f };
+	pendulum.length = 0.8f;
+	pendulum.angle = 0.7f;
+	pendulum.anglerVelocity = 0.0f;
+	pendulum.angularAcceleration = 0.0f;
 
 	bool isStart = false;
 
@@ -65,16 +64,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			isStart = true;
 		}
 
-		// 円運動
+		// 振り子運動
 		if (isStart) {
-			angle += angularVelocity * deltaTime;
+			pendulum.angularAcceleration =
+				-(9.8f / pendulum.length) * std::sin(pendulum.angle);
+			pendulum.anglerVelocity += pendulum.angularAcceleration * deltaTime;
+			pendulum.angle += pendulum.anglerVelocity * deltaTime;
 		}
 
-		// 座標更新
-		p.x = center.x + std::cos(angle) * radius;
-		p.y = center.y + std::sin(angle) * radius;
-		p.z = center.z;
-		
+		// pは振り子の先端の位置。取り付けたい物を取り付ける
+		p.x = pendulum.anchor.x + std::sin(pendulum.angle) * pendulum.length;
+		p.y = pendulum.anchor.y - std::cos(pendulum.angle) * pendulum.length;
+		p.z = pendulum.anchor.z;
+
 		worldMatrix = MakeAffineMatrix({ 1.0f, 1.0f,1.0f }, rotate, translate);
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
 		viewMatrix = Inverse(cameraMatrix);
@@ -117,8 +119,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		ImGui::Begin("window");
 		
-		ImGui::DragFloat("translate", &translate.z, 0.1f);
-
 		ImGui::End();
 
 		///
@@ -132,7 +132,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
 		//	点の位置をスクリーン座標に変換
-		Vector3 screenOrigin = Transform(Transform(center, worldViewProjectionMatrix), viewportMatrix);
+		Vector3 screenOrigin = Transform(Transform(pendulum.anchor, worldViewProjectionMatrix), viewportMatrix);
 		Vector3 screenDiff = Transform(Transform(p, worldViewProjectionMatrix), viewportMatrix);
 
 		Novice::DrawLine( 
