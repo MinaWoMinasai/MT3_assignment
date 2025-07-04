@@ -73,6 +73,11 @@ Vector3 Bezier(const Vector3& p0, const Vector3& p1, const Vector3& p2, float t)
 	return p;
 }
 
+Vector3 Reflect(const Vector3& input, const Vector3& normal)
+{
+	return input - 2.0f * (Dot(input, normal) * normal);
+}
+
 Vector3 Cross(const Vector3& v1, const Vector3& v2) {
 
 	Vector3 result;

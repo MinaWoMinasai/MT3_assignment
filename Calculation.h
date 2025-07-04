@@ -118,6 +118,9 @@ Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t);
 // ベジェ曲線上の点を求める
 Vector3 Bezier(const Vector3& v1, const Vector3& v2, const Vector3& v3, float t);
 
+// 反射ベクトルを求める
+Vector3 Reflect(const Vector3& input, const Vector3& normal);
+
 // 行列の加算
 Matrix4x4 Add(const Matrix4x4& m1, const Matrix4x4& m2);
 
