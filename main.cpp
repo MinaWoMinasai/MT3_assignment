@@ -3,7 +3,7 @@
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_02";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_03";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -33,17 +33,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Matrix4x4 worldViewProjectionMatrix;
 	Matrix4x4 viewportMatrix;
 
-	// 振り子上の点の座標
-	Vector3 p = {0.0f, 0.0f, 0.0f};
-
 	float deltaTime = 1.0f / 60.0f;
 
-	Pendulum pendulum;
-	pendulum.anchor = { 0.0f, 1.0f, 0.0f };
-	pendulum.length = 0.8f;
-	pendulum.angle = 0.7f;
-	pendulum.anglerVelocity = 0.0f;
-	pendulum.angularAcceleration = 0.0f;
+	// ボブ
+	Ball ball;
+	ball.position = {};
+
+	// 円錐振り子
+	ConicalPendulum conicalPendulum;
+	conicalPendulum.anchor = { 0.0f, 1.0f, 0.0f };
+	conicalPendulum.length = 0.8f;
+	conicalPendulum.halfApexAngle = 0.7f;
+	conicalPendulum.angle = 0.0f;
+	conicalPendulum.angularVelocity = 0.0f;
 
 	bool isStart = false;
 
@@ -64,18 +66,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			isStart = true;
 		}
 
-		// 振り子運動
+		// 円錐振り子運動
 		if (isStart) {
-			pendulum.angularAcceleration =
-				-(9.8f / pendulum.length) * std::sin(pendulum.angle);
-			pendulum.anglerVelocity += pendulum.angularAcceleration * deltaTime;
-			pendulum.angle += pendulum.anglerVelocity * deltaTime;
+			
+			conicalPendulum.angularVelocity = std::sqrtf(9.8f / (conicalPendulum.length * std::cos(conicalPendulum.halfApexAngle)));
+			conicalPendulum.angle += conicalPendulum.angularVelocity * deltaTime;
 		}
 
-		// pは振り子の先端の位置。取り付けたい物を取り付ける
-		p.x = pendulum.anchor.x + std::sin(pendulum.angle) * pendulum.length;
-		p.y = pendulum.anchor.y - std::cos(pendulum.angle) * pendulum.length;
-		p.z = pendulum.anchor.z;
+		// 座標更新
+		float radius = std::sin(conicalPendulum.halfApexAngle) * conicalPendulum.length;
+		float height = std::cos(conicalPendulum.halfApexAngle) * conicalPendulum.length;
+		ball.position.x = conicalPendulum.anchor.x + std::cos(conicalPendulum.angle) * radius;
+		ball.position.y = conicalPendulum.anchor.y - height;
+		ball.position.z = conicalPendulum.anchor.z - std::sin(conicalPendulum.angle) * radius;
 
 		worldMatrix = MakeAffineMatrix({ 1.0f, 1.0f,1.0f }, rotate, translate);
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
@@ -132,8 +135,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
 		//	点の位置をスクリーン座標に変換
-		Vector3 screenOrigin = Transform(Transform(pendulum.anchor, worldViewProjectionMatrix), viewportMatrix);
-		Vector3 screenDiff = Transform(Transform(p, worldViewProjectionMatrix), viewportMatrix);
+		Vector3 screenOrigin = Transform(Transform(conicalPendulum.anchor, worldViewProjectionMatrix), viewportMatrix);
+		Vector3 screenDiff = Transform(Transform(ball.position, worldViewProjectionMatrix), viewportMatrix);
 
 		Novice::DrawLine( 
 			static_cast<int>(screenOrigin.x),
@@ -144,7 +147,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		);
 
 		// 球を描画する
-		DrawSphere(Sphere(p, 0.02f), worldViewProjectionMatrix, viewportMatrix, 0x00FF00FF);
+		DrawSphere(Sphere(ball.position, 0.02f), worldViewProjectionMatrix, viewportMatrix, 0x00FF00FF);
 
 		///
 		/// ↑描画処理ここまで
