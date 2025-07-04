@@ -43,6 +43,11 @@ struct Segment {
 	Vector3 diff; // 終点への差分ベクトル
 };
 
+struct Capsule {
+	Segment segment;
+	float radius;
+};
+
 struct Plane {
 	Vector3 normal; // 法線
 	float distance; // 距離
@@ -217,6 +222,9 @@ void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label);
 
 // 入れ替わり防止
 void PreventingSubstitutions(AABB aabb);
+
+// トンネリング阻止
+bool SweepSphereToPlane(const Vector3& from, const Vector3& to, float radius, const Plane& plane, Vector3& contactPoint);
 
 // 演算子オーバーロード
 inline Vector3 operator+(const Vector3& v1, const Vector3& v2) { return Add(v1, v2); }

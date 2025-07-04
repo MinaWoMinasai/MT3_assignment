@@ -1,9 +1,10 @@
+#define NOMINMAX
 #include <Novice.h>
 #include <imgui.h>
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_03";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_04";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -35,26 +36,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	float deltaTime = 1.0f / 60.0f;
 
-	// ボブ
+	// ボール
 	Ball ball;
 	ball.position = { 5.0f, 10.0f, 0.0f };
 	ball.velocity = { 0.0f, 0.0f, 0.0f };
-	ball.acceleration = { 0.0f, -9.8f, 0.0f };
-	ball.mass = 1.0f;
-	ball.radius = 0.5f;
+	ball.acceleration = { 0.0f, -98.0f, 0.0f };
+	ball.mass = 2.0f;
+	ball.radius = 0.2f;
 	ball.color = 0xFFFFFFFF;
 
 	// 平面
-	Plane plane = { { 0.0f, 1.0f, 0.0f }, 1.0f };
+	Plane plane = { Normalize({ -0.2f, 0.9f, -0.3f }), 0.0f };
 
-	// 係数
-	float e = 0.7f;
+	// 反発係数
+	float e = 0.9f;
 
 	bool isStart = false;
-
-	// 今と前の位置を入手する
-	Vector3 P0 = {};
-	Vector3 P1 = {};
 
 	unsigned int color;
 
@@ -75,42 +72,45 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			isStart = true;
 		}
 
-
-		// 1フレーム前の位置を保管しておく
-		P0 = ball.position;
-
 		color = 0xFFFFFFFF;
 
-		// 円錐振り子運動
+		// ボールの挙動と平面との判定
 		if (isStart) {
+			// スウィープ判定でトンネリングを防止
+			Vector3 from = ball.position;
+			Vector3 to = from + ball.velocity * deltaTime;
+
+			Vector3 contactPoint;
+			if (SweepSphereToPlane(from, to, ball.radius, plane, contactPoint)) {
+				// 位置・速度を補正
+				ball.position = contactPoint;
+
+				// 反射処理
+				Vector3 normalVel = Project(ball.velocity, plane.normal);
+				Vector3 tangentVel = ball.velocity - normalVel;
+				ball.velocity = -normalVel * e + tangentVel;
+			}
 
 			ball.velocity += ball.acceleration * deltaTime;
 			ball.position += ball.velocity * deltaTime;
 
-			// 今のフレームの位置を保管しておく
-			P1 = ball.position;
-
+			// めり込み防止
 			if (IsCollision(Sphere{ ball.position, ball.radius }, plane)) {
-
 				color = 0xFF0000FF;
 
-				float distance0 = Dot(plane.normal, P0) - plane.distance;  // 前フレーム
-				float distance1 = Dot(plane.normal, P1) - plane.distance;  // 今フレーム
+				// 法線方向の距離
+				float d = Dot(plane.normal, ball.position) - plane.distance;
 
-				// 押し戻し処理
-				float t = (ball.radius - distance0) / (distance1 - distance0);
-				t = std::clamp(t, 0.0f, 1.0f);
-				Vector3 contactPos = Lerp(P0, P1, t);
-				ball.position = contactPos;
+				// 押し戻す
+				ball.position -= plane.normal * (d - ball.radius);
 
-				// ボールの反射
-				Vector3 reflected = Reflect(ball.velocity, plane.normal);
-				Vector3 projectToNormal = Project(reflected, plane.normal);
-				Vector3 movingDirection = reflected - projectToNormal;
-				ball.velocity = projectToNormal * e + movingDirection;
-
+				// 反射処理
+				Vector3 normalVel = Project(ball.velocity, plane.normal);
+				Vector3 tangentVel = ball.velocity - normalVel;
+				ball.velocity = -normalVel * e + tangentVel;
 			}
 		}
+
 		worldMatrix = MakeAffineMatrix({ 1.0f, 1.0f,1.0f }, rotate, translate);
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
 		viewMatrix = Inverse(cameraMatrix);
@@ -154,10 +154,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("window");
 
 		ImGui::DragFloat3("Ball.position", &ball.position.x, 0.1f);
+		ImGui::DragFloat3("Ball.velocity", &ball.velocity.x, 0.1f);
 		ImGui::DragFloat3("Plane.normal", &plane.normal.x, 0.1f);
 		ImGui::DragFloat("Plane.distance", &plane.distance, 0.1f);
 		ImGui::DragFloat("e", &e, 0.01f);
-
+		plane.normal = Normalize(plane.normal);
 		ImGui::End();
 
 		///

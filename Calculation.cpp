@@ -954,3 +954,27 @@ void PreventingSubstitutions(AABB aabb)
 	aabb.max.z = (std::max)(aabb.min.z, aabb.max.z);
 
 }
+
+bool SweepSphereToPlane(const Vector3& from, const Vector3& to, float radius, const Plane& plane, Vector3& contactPoint) {
+	
+	Vector3 dir = to - from;
+	float length = Length(dir);
+	if (length < 1e-6f) return false;
+
+	Vector3 dirNormalized = Normalize(dir);
+	float denom = Dot(dirNormalized, plane.normal);
+
+	if (std::abs(denom) < 1e-5f) {
+		return false;
+	}
+
+	float distFrom = Dot(from, plane.normal) - plane.distance;
+	float t = (radius - distFrom) / denom;
+
+	if (t >= 0.0f && t <= length) {
+		contactPoint = from + dirNormalized * t;
+		return true;
+	}
+
+	return false;
+}
