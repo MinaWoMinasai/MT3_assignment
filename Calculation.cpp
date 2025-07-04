@@ -73,6 +73,11 @@ Vector3 Bezier(const Vector3& p0, const Vector3& p1, const Vector3& p2, float t)
 	return p;
 }
 
+Vector3 Reflect(const Vector3& input, const Vector3& normal)
+{
+	return input - 2.0f * (Dot(input, normal) * normal);
+}
+
 Vector3 Cross(const Vector3& v1, const Vector3& v2) {
 
 	Vector3 result;
@@ -948,4 +953,28 @@ void PreventingSubstitutions(AABB aabb)
 	aabb.min.z = (std::min)(aabb.min.z, aabb.max.z);
 	aabb.max.z = (std::max)(aabb.min.z, aabb.max.z);
 
+}
+
+bool SweepSphereToPlane(const Vector3& from, const Vector3& to, float radius, const Plane& plane, Vector3& contactPoint) {
+	
+	Vector3 dir = to - from;
+	float length = Length(dir);
+	if (length < 1e-6f) return false;
+
+	Vector3 dirNormalized = Normalize(dir);
+	float denom = Dot(dirNormalized, plane.normal);
+
+	if (std::abs(denom) < 1e-5f) {
+		return false;
+	}
+
+	float distFrom = Dot(from, plane.normal) - plane.distance;
+	float t = (radius - distFrom) / denom;
+
+	if (t >= 0.0f && t <= length) {
+		contactPoint = from + dirNormalized * t;
+		return true;
+	}
+
+	return false;
 }

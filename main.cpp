@@ -1,9 +1,10 @@
+#define NOMINMAX
 #include <Novice.h>
 #include <imgui.h>
 #include "algorithm"
 #include "Calculation.h"
 
-const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_03";
+const char kWindowTitle[] = "LE2A_13_ホリケ_ハヤト_確認課題04_04";
 
 // 画面の大きさ
 const float kWindowWidth = 1280.0f;
@@ -35,19 +36,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	float deltaTime = 1.0f / 60.0f;
 
-	// ボブ
+	// ボール
 	Ball ball;
-	ball.position = {};
+	ball.position = { 5.0f, 10.0f, 0.0f };
+	ball.velocity = { 0.0f, 0.0f, 0.0f };
+	ball.acceleration = { 0.0f, -98.0f, 0.0f };
+	ball.mass = 2.0f;
+	ball.radius = 0.2f;
+	ball.color = 0xFFFFFFFF;
 
-	// 円錐振り子
-	ConicalPendulum conicalPendulum;
-	conicalPendulum.anchor = { 0.0f, 1.0f, 0.0f };
-	conicalPendulum.length = 0.8f;
-	conicalPendulum.halfApexAngle = 0.7f;
-	conicalPendulum.angle = 0.0f;
-	conicalPendulum.angularVelocity = 0.0f;
+	// 平面
+	Plane plane = { Normalize({ -0.2f, 0.9f, -0.3f }), 0.0f };
+
+	// 反発係数
+	float e = 0.9f;
 
 	bool isStart = false;
+
+	unsigned int color;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -66,19 +72,44 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			isStart = true;
 		}
 
-		// 円錐振り子運動
-		if (isStart) {
-			
-			conicalPendulum.angularVelocity = std::sqrtf(9.8f / (conicalPendulum.length * std::cos(conicalPendulum.halfApexAngle)));
-			conicalPendulum.angle += conicalPendulum.angularVelocity * deltaTime;
-		}
+		color = 0xFFFFFFFF;
 
-		// 座標更新
-		float radius = std::sin(conicalPendulum.halfApexAngle) * conicalPendulum.length;
-		float height = std::cos(conicalPendulum.halfApexAngle) * conicalPendulum.length;
-		ball.position.x = conicalPendulum.anchor.x + std::cos(conicalPendulum.angle) * radius;
-		ball.position.y = conicalPendulum.anchor.y - height;
-		ball.position.z = conicalPendulum.anchor.z - std::sin(conicalPendulum.angle) * radius;
+		// ボールの挙動と平面との判定
+		if (isStart) {
+			// スウィープ判定でトンネリングを防止
+			Vector3 from = ball.position;
+			Vector3 to = from + ball.velocity * deltaTime;
+
+			Vector3 contactPoint;
+			if (SweepSphereToPlane(from, to, ball.radius, plane, contactPoint)) {
+				// 位置・速度を補正
+				ball.position = contactPoint;
+
+				// 反射処理
+				Vector3 normalVel = Project(ball.velocity, plane.normal);
+				Vector3 tangentVel = ball.velocity - normalVel;
+				ball.velocity = -normalVel * e + tangentVel;
+			}
+
+			ball.velocity += ball.acceleration * deltaTime;
+			ball.position += ball.velocity * deltaTime;
+
+			// めり込み防止
+			if (IsCollision(Sphere{ ball.position, ball.radius }, plane)) {
+				color = 0xFF0000FF;
+
+				// 法線方向の距離
+				float d = Dot(plane.normal, ball.position) - plane.distance;
+
+				// 押し戻す
+				ball.position -= plane.normal * (d - ball.radius);
+
+				// 反射処理
+				Vector3 normalVel = Project(ball.velocity, plane.normal);
+				Vector3 tangentVel = ball.velocity - normalVel;
+				ball.velocity = -normalVel * e + tangentVel;
+			}
+		}
 
 		worldMatrix = MakeAffineMatrix({ 1.0f, 1.0f,1.0f }, rotate, translate);
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
@@ -121,7 +152,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
 
 		ImGui::Begin("window");
-		
+
+		ImGui::DragFloat3("Ball.position", &ball.position.x, 0.1f);
+		ImGui::DragFloat3("Ball.velocity", &ball.velocity.x, 0.1f);
+		ImGui::DragFloat3("Plane.normal", &plane.normal.x, 0.1f);
+		ImGui::DragFloat("Plane.distance", &plane.distance, 0.1f);
+		ImGui::DragFloat("e", &e, 0.01f);
+		plane.normal = Normalize(plane.normal);
 		ImGui::End();
 
 		///
@@ -131,23 +168,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓描画処理ここから
 		///
-	
+
 		DrowGrid(worldViewProjectionMatrix, viewportMatrix);
 
-		//	点の位置をスクリーン座標に変換
-		Vector3 screenOrigin = Transform(Transform(conicalPendulum.anchor, worldViewProjectionMatrix), viewportMatrix);
-		Vector3 screenDiff = Transform(Transform(ball.position, worldViewProjectionMatrix), viewportMatrix);
-
-		Novice::DrawLine( 
-			static_cast<int>(screenOrigin.x),
-			static_cast<int>(screenOrigin.y),
-			static_cast<int>(screenDiff.x),
-			static_cast<int>(screenDiff.y),
-			0xFFFFFFFF
-		);
+		// 平面の描画
+		DrawPlane(plane, worldViewProjectionMatrix, viewportMatrix, color);
 
 		// 球を描画する
-		DrawSphere(Sphere(ball.position, 0.02f), worldViewProjectionMatrix, viewportMatrix, 0x00FF00FF);
+		DrawSphere(Sphere(ball.position, ball.radius), worldViewProjectionMatrix, viewportMatrix, 0x00FF00FF);
 
 		///
 		/// ↑描画処理ここまで
